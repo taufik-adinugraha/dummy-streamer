@@ -32,7 +32,7 @@ python3 streamer.py --db_type=postgres --db_config='{"host":"localhost","user":"
 2. **Metadata**
    - `populate_device_metadata(..., num_devices)` inserts random location, building_type, and a random customer_id for each device from 1 to num_devices into `device_metadata`
 
-3. **Preload 30 Days**
+3. **Preload Data**
    - `insert_historical_data(...)` loops over the last preload_days (default 100) and inserts one reading per day per device into `power_usage`
    - Each day, a random hour/minute is chosen, we call `generate_power_usage_at(dev_id, that_datetime)` to generate usage consistent with that day/time
 
