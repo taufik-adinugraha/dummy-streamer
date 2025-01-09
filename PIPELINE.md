@@ -1,4 +1,4 @@
-Below is a demo scenario that integrates IoT data with metadata using a ClickHouse pipeline (L1→L4), then surfaces insights in Looker. We'll walk through how to join streaming IoT data (like power usage) with a metadata table (customer/device info), create materialized views for fast queries, and finally configure Looker to access ClickHouse.
+Below is a demo scenario that integrates IoT data with metadata using a ClickHouse pipeline (L1→L4). We'll walk through how to join streaming IoT data (like power usage) with a metadata table (customer/device info), and create materialized views for fast queries.
 
 ## 1. Overall Demo Flow
 1. Data Stream (IoT): A script continuously sends minimal device usage data (e.g., device_id, timestamp, power_usage_kWh) to ClickHouse.
@@ -8,7 +8,6 @@ Below is a demo scenario that integrates IoT data with metadata using a ClickHou
    - L2 (Cleaned): Filter out invalid usage values.
    - L3 (Joined): Join with device_metadata to enrich each record.
    - L4 (Aggregated): Materialized views for high-performance queries and dashboards.
-4. Looker Dashboard: Connect Looker to ClickHouse, define a model (dimensions, measures), and create dynamic insights.
 
 ## 2. Data Model: L1→L4 with Metadata
 
@@ -55,8 +54,7 @@ SELECT
     device_id,
     power_usage_kWh
 FROM l1_power_raw
-WHERE power_usage_kWh >= 0
-  AND power_usage_kWh < 100;  -- Arbitrary upper threshold
+WHERE power_usage_kWh >= 0;  -- Negative values are not allowed
 ```
 
 - Result: l2_power_cleaned auto-updates, containing only "good" usage values.

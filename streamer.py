@@ -23,7 +23,7 @@ except ImportError:
 # Constants / sample data for dummy metadata
 # --------------------------------------------------------------------------------
 
-BUILDING_TYPES = ["Rumah Tinggal", "Apartemen", "Ruko", "Kantor"]
+BUILDING_TYPES = ["Rumah", "Apartemen", "Ruko", "Kantor", "Sekolah", "Rumah Sakit", "Pabrik"]
 LOCATION_DATA = [
     # (MinLat, MaxLat, MinLon, MaxLon, 'AreaName') - Rough bounding boxes for Jabodetabek
     (-6.40, -6.15, 106.60, 106.90, "Jakarta"),
@@ -68,6 +68,7 @@ def generate_power_usage_at(device_id: int, dt: datetime, base_usage=1.5) -> dic
 
 def generate_power_usage_now(device_id: int) -> dict:
     """Shortcut to generate usage at the current moment."""
+    from datetime import datetime
     return generate_power_usage_at(device_id, datetime.now())
 
 def random_location() -> tuple:
@@ -239,9 +240,11 @@ def insert_power_usage(db_type, conn, cursor, record):
     cursor.execute(sql, params)
     conn.commit()
 
-def cleanup_old_data(db_type, conn, cursor, days=5):
-    """Remove data older than 'days' days from power_usage."""
-    cutoff = datetime.now() - timedelta(days=days)
+def cleanup_old_data(db_type, conn, cursor, retention_days=100):
+    """
+    Remove data older than 'retention_days' from power_usage.
+    """
+    cutoff = datetime.now() - timedelta(days=retention_days)
     cutoff_iso = cutoff.isoformat()
 
     if db_type == 'sqlite':
@@ -257,7 +260,7 @@ def cleanup_old_data(db_type, conn, cursor, days=5):
 # Historical data insertion
 # --------------------------------------------------------------------------------
 
-def insert_historical_data(db_type, conn, cursor, device_ids, days=30):
+def insert_historical_data(db_type, conn, cursor, device_ids, days=100):
     """
     Insert 'days' of historical data for each device.
     e.g., 1 reading per day for each device, over 'days' days in the past.
@@ -284,14 +287,20 @@ def insert_historical_data(db_type, conn, cursor, device_ids, days=30):
 # Main
 # --------------------------------------------------------------------------------
 
-def main(db_type='sqlite', db_config=None, num_devices=5, interval_seconds=5, preload_days=30):
+def main(db_type='sqlite', 
+         db_config=None, 
+         num_devices=10, 
+         interval_seconds=3600, 
+         preload_days=100,
+         retention_days=100):
     """
     1) Create DB connection
     2) Setup both tables
     3) Populate device_metadata (device_id from 1..num_devices)
     4) Fetch device_ids from device_metadata => consistent device_id usage
     5) Insert 'preload_days' of historical data
-    6) Begin streaming new data at 'interval' seconds
+    6) Begin streaming new data at 'interval_seconds' intervals
+    7) Cleanup old data older than 'retention_days' (every 100 cycles)
     """
     if db_config is None:
         db_config = {}
@@ -325,11 +334,11 @@ def main(db_type='sqlite', db_config=None, num_devices=5, interval_seconds=5, pr
             # Periodic cleanup
             cleanup_counter += 1
             if cleanup_counter >= 100:
-                cleanup_old_data(db_type, conn, cursor, days=5)
+                cleanup_old_data(db_type, conn, cursor, retention_days=retention_days)
                 cleanup_counter = 0
 
             # Insert random usage for a subset of the known device_ids
-            num_reports = random.randint(1, len(device_ids))
+            num_reports = random.randint(int(len(device_ids) * 0.5), len(device_ids))
             sampled_devices = random.sample(device_ids, k=num_reports)
 
             for dev_id in sampled_devices:
@@ -351,17 +360,17 @@ if __name__ == "__main__":
     Example usage:
 
     1) SQLite (default):
-       python script.py
+       python streamer.py --num_devices=100 --interval_seconds=3600 --preload_days=100 --retention_days=100
 
     2) MySQL:
-       python script.py --db_type=mysql \
+       python streamer.py --db_type=mysql \
          --db_config='{"host":"localhost","user":"root","password":"secret","database":"test"}' \
-         --num_devices=10 --interval_seconds=3600 --preload_days=30
+         --num_devices=100 --interval_seconds=3600 --preload_days=100 --retention_days=100
 
     3) Postgres:
-       python script.py --db_type=postgres \
+       python streamer.py --db_type=postgres \
          --db_config='{"host":"localhost","user":"postgres","password":"secret","database":"test"}' \
-         --num_devices=10 --interval_seconds=3600 --preload_days=30
+         --num_devices=100 --interval_seconds=3600 --preload_days=100 --retention_days=100
     """
 
     import argparse, json
@@ -371,9 +380,10 @@ if __name__ == "__main__":
                         help="Database type: sqlite, mysql, postgres")
     parser.add_argument("--db_config", type=str, default="{}",
                         help="JSON string with db config, e.g. '{\"database\":\"demo.db\"}'")
-    parser.add_argument("--num_devices", type=int, default=10, help="Number of devices (metadata rows)")
+    parser.add_argument("--num_devices", type=int, default=100, help="Number of devices (metadata rows)")
     parser.add_argument("--interval_seconds", type=int, default=3600, help="Seconds between streaming inserts")
-    parser.add_argument("--preload_days", type=int, default=30, help="Days of historical data to insert first")
+    parser.add_argument("--preload_days", type=int, default=100, help="Days of historical data to insert first")
+    parser.add_argument("--retention_days", type=int, default=100, help="How many days of data to keep before deletion")
 
     args = parser.parse_args()
 
@@ -382,6 +392,11 @@ if __name__ == "__main__":
     num_devices = args.num_devices
     interval_seconds = args.interval_seconds
     preload_days = args.preload_days
+    retention_days = args.retention_days
 
-    main(db_type=db_type, db_config=db_config, 
-         num_devices=num_devices, interval_seconds=interval_seconds, preload_days=preload_days)
+    main(db_type=db_type, 
+         db_config=db_config, 
+         num_devices=num_devices, 
+         interval_seconds=interval_seconds, 
+         preload_days=preload_days,
+         retention_days=retention_days)
