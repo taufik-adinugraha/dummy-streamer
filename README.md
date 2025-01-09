@@ -39,12 +39,11 @@ python3 streamer.py --db_type=postgres --db_config='{"host":"localhost","user":"
 4. **Start Streaming**
    - After the historical data is in place, the script begins real-time inserts (one batch every interval seconds)
    - Data is inserted into `power_usage` in near-real time
-   - The number of data not necessarily the same as the number of devices, as we simu
+   - **Note**: not every device generates a reading on each interval; it’s a random subset. At least 50% of devices generate a reading on each interval.
 
 5. **Cleanup**
    - Every 100 cycles, we call `cleanup_old_data(...)` to remove data older than retention_days in `power_usage` table
    - You can adjust this to keep more or less historical data
-   - **Note**: not every device generates a reading on each interval; it’s a random subset. At least 50% of devices generate a reading on each interval.
 
 ## Result
 
