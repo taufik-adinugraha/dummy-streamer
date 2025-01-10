@@ -184,6 +184,20 @@ How It Works:
 - The actual numeric values (e.g., total count or total sum) are not stored as simple numbers; they're stored as partial aggregates that need a final merge step at query time.
 - Average can be calculated as sum / count.
 
+### Notes:
+- Having one robust aggregated table (i.e., “data mart”) is often enough for many analytics use cases, provided we include the dimensions and metrics we most frequently query.
+- A single data mart in ClickHouse (or similar OLAP systems) can still be very efficient at billions of rows—provided that we design it carefully.
+- If we discover major performance issues or have drastically different grouping patterns, we can create additional data cubes (materialized views + aggregated tables) specialized for those queries.
+- If our data size is really large (tens to hundreds of billions of rows), we can horizontally scale ClickHouse by:
+  - Sharding across multiple nodes.
+  - Replicating for high availability.
+- Memory & Hardware Considerations
+  - Sufficient RAM & Fast Disks. For large-scale aggregates, we want enough memory for merges and queries, plus fast (NVMe/SSD) storage for scans.
+  - Tune Settings. Adjust concurrency, memory limits (e.g., max_memory_usage), and block sizes in ClickHouse to ensure merges don’t overwhelm our hardware.
+- If our data arrives in high volume (millions of new events per minute), we should design batch or micro-batch ingestion that suits our hardware.
+- Materialized Views can process partial aggregates in near real-time, but if the ingestion overhead becomes too high, we can switch to a short-batch approach (e.g., merges every 1–5 minutes) to reduce system load.
+
+
 ## 3. Querying the Data
 When we want to retrieve the final aggregated metrics (e.g., count, sum, min, max), we use countMerge(), sumMerge(), minMerge(), maxMerge() in our SELECT query. For example:
 ```sql
@@ -306,10 +320,8 @@ GROUP BY latitude, longitude
 ORDER BY total_usage DESC;
 ```
 
-### Notes
+### Notes:
 - All queries support additional filters (date range, building type, customer ID, etc.)
 - Use `xxxMerge()` functions to finalize partial states from AggregatingMergeTree
 - Consider partitioning and sorting keys for query optimization
 - BI tools can parameterize these queries for interactive filtering
-
-This set of queries covers hourly trends, usage patterns, building type comparisons, top devices, and location-based usage—fulfilling your typical IoT power usage analytics requirements.
