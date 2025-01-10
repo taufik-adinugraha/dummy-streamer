@@ -12,10 +12,10 @@ Below is a demo scenario that integrates IoT data with metadata using a ClickHou
    - L4 (Aggregated): Materialized views for high-performance queries and dashboards.
 
 So the sequence is:
-	1.	streamer.py → OLTP Database (inserts).
-	2.	Debezium → reads DB’s binlog/WAL → Kafka.
-	3.	Kafka → ClickHouse (via Kafka Engine or a consumer job).
-	4.	ClickHouse populates L1 (raw table).
+1. streamer.py → OLTP Database (inserts)
+2. Debezium → reads DB's binlog/WAL → Kafka
+3. Kafka → ClickHouse (via Kafka Engine or a consumer job)
+4. ClickHouse populates L1 (raw table)
 
 ## 2. Data Model: L1→L4 with Metadata
 
@@ -181,7 +181,7 @@ GROUP BY
 How It Works:
 - AggregatingMergeTree allows us to store partial aggregate states (count, sum, min, max, avg, etc.) instead of simple sums.
 - Every time new rows arrive in l3_power_joined, ClickHouse updates l4_power_agg_stats by accumulating partial states (countState, sumState, etc.).
-- The actual numeric values (e.g., total count or total sum) are not stored as simple numbers; they’re stored as partial aggregates that need a final merge step at query time.
+- The actual numeric values (e.g., total count or total sum) are not stored as simple numbers; they're stored as partial aggregates that need a final merge step at query time.
 - Average can be calculated as sum / count.
 
 ## 3. Querying the Data
